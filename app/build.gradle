@@ -17,6 +17,8 @@ dependencies {
     implementation 'org.apache.camel:camel-log'
 
     implementation "org.slf4j:slf4j-simple:${slf4jVersion}"
+    implementation 'org.apache.camel:camel-jms'
+    implementation 'org.apache.activemq:artemis-jakarta-client:2.44.0'
 
     testImplementation libs.junit.jupiter
     testImplementation 'org.apache.camel:camel-test-junit5'
