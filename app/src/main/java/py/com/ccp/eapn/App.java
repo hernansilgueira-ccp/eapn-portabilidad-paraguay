@@ -1,6 +1,7 @@
 package py.com.ccp.eapn;
 
 import org.apache.camel.main.Main;
+import py.com.ccp.eapn.route.PortabilityRequestRoute;
 import py.com.ccp.eapn.route.StartupRoute;
 
 public final class App {
@@ -10,7 +11,10 @@ public final class App {
 
     public static void main(String[] args) throws Exception {
         Main main = new Main();
+
         main.configure().addRoutesBuilder(new StartupRoute());
+        main.configure().addRoutesBuilder(new PortabilityRequestRoute());
+
         main.run(args);
     }
 }
