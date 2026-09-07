@@ -2,6 +2,7 @@ package py.com.ccp.eapn.route;
 
 import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.PortabilityRequest;
+import py.com.ccp.eapn.service.PortabilityJsonSerializer;
 
 public class PortabilityRequestRoute extends RouteBuilder {
 
@@ -13,20 +14,37 @@ public class PortabilityRequestRoute extends RouteBuilder {
             + "?connectionFactory=#jmsConnectionFactory";
 
     private final String outputEndpoint;
+    private final PortabilityJsonSerializer serializer;
 
     public PortabilityRequestRoute() {
-        this(JMS_ENDPOINT);
+        this(
+            JMS_ENDPOINT,
+            new PortabilityJsonSerializer()
+        );
     }
 
     PortabilityRequestRoute(String outputEndpoint) {
+        this(
+            outputEndpoint,
+            new PortabilityJsonSerializer()
+        );
+    }
+
+    PortabilityRequestRoute(
+        String outputEndpoint,
+        PortabilityJsonSerializer serializer
+    ) {
         this.outputEndpoint = outputEndpoint;
+        this.serializer = serializer;
     }
 
     @Override
     public void configure() {
         from(INPUT_ENDPOINT)
             .routeId("portability-request")
-            .validate(body().isInstanceOf(PortabilityRequest.class))
+            .validate(
+                body().isInstanceOf(PortabilityRequest.class)
+            )
             .setHeader(
                 "requestId",
                 simple("${body.requestId}")
@@ -47,7 +65,7 @@ public class PortabilityRequestRoute extends RouteBuilder {
                 "Enviando solicitud ${header.requestId} "
                     + "a portability.requests"
             )
-            .convertBodyTo(String.class)
+            .bean(serializer, "serialize")
             .to(outputEndpoint);
     }
 }
