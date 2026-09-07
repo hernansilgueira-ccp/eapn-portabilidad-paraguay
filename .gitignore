@@ -10,3 +10,6 @@ build
 # Visual Studio Code y archivos compilados
 .vscode/
 **/bin/
+
+# Variables locales y credenciales
+.env
