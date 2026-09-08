@@ -26,6 +26,9 @@ dependencies {
     testImplementation libs.junit.jupiter
     testImplementation 'org.apache.camel:camel-test-junit5'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'org.apache.camel:camel-sql'
+    implementation 'org.postgresql:postgresql:42.7.13'
 }
 
 java {

@@ -9,46 +9,57 @@ import py.com.ccp.eapn.model.Operator;
 import py.com.ccp.eapn.model.PortabilityRequest;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PortabilityRequestRouteTest extends CamelTestSupport {
+class PortabilityRequestRouteTest
+    extends CamelTestSupport {
 
-    private static final String MOCK_ENDPOINT =
+    private static final String MOCK_DATABASE =
+        "mock:database";
+
+    private static final String MOCK_ARTEMIS =
         "mock:portability-requests";
 
     @Override
     protected RoutesBuilder createRouteBuilder() {
-        return new PortabilityRequestRoute(MOCK_ENDPOINT);
+        return new PortabilityRequestRoute(
+            MOCK_DATABASE,
+            MOCK_ARTEMIS
+        );
     }
 
     @Test
-    void shouldSendValidRequestToOutputChannel()
+    void shouldPersistAndSendValidRequest()
         throws Exception {
 
-        PortabilityRequest request = PortabilityRequest.create(
-            "595981123456",
-            "4567890",
-            Operator.TIGO,
-            Operator.PERSONAL
-        );
+        PortabilityRequest request =
+            PortabilityRequest.create(
+                "595981123456",
+                "4567890",
+                Operator.TIGO,
+                Operator.PERSONAL
+            );
 
-        MockEndpoint mock = getMockEndpoint(MOCK_ENDPOINT);
+        MockEndpoint database =
+            getMockEndpoint(MOCK_DATABASE);
 
-        mock.expectedMessageCount(1);
-        mock.expectedHeaderReceived(
+        MockEndpoint artemis =
+            getMockEndpoint(MOCK_ARTEMIS);
+
+        database.expectedMessageCount(1);
+        database.expectedHeaderReceived(
             "requestId",
             request.requestId().toString()
         );
-        mock.expectedHeaderReceived(
+        database.expectedHeaderReceived(
+            "status",
+            "CREATED"
+        );
+
+        artemis.expectedMessageCount(1);
+        artemis.expectedHeaderReceived(
             "msisdn",
-            request.msisdn()
-        );
-        mock.expectedHeaderReceived(
-            "donorOperator",
-            Operator.TIGO.name()
-        );
-        mock.expectedHeaderReceived(
-            "recipientOperator",
-            Operator.PERSONAL.name()
+            "595981123456"
         );
 
         template.sendBody(
@@ -56,7 +67,23 @@ class PortabilityRequestRouteTest extends CamelTestSupport {
             request
         );
 
-        mock.assertIsSatisfied();
+        database.assertIsSatisfied();
+        artemis.assertIsSatisfied();
+
+        String json = artemis.getExchanges()
+            .getFirst()
+            .getMessage()
+            .getBody(String.class);
+
+        assertTrue(json.contains("\"requestId\""));
+        assertTrue(
+            json.contains(
+                "\"msisdn\":\"595981123456\""
+            )
+        );
+        assertTrue(
+            json.contains("\"status\":\"CREATED\"")
+        );
     }
 
     @Test
