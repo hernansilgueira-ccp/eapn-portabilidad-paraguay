@@ -152,10 +152,21 @@ public class PortabilityRequestConsumerRoute
                 "PIN generado para la solicitud "
                     + "${header.requestId}"
             )
-            .to(databaseEndpoint)
-            .setBody(
-                exchangeProperty("pinNotification")
-            )
+           .to(databaseEndpoint)
+.setHeader(
+    "auditStatus",
+    constant("PIN_GENERATED")
+)
+.setHeader(
+    "auditDetails",
+    constant("PIN generado para la solicitud")
+)
+.wireTap(
+    PortabilityStatusPublisherRoute.INPUT_ENDPOINT
+)
+.setBody(
+    exchangeProperty("pinNotification")
+)
             .bean(
                 serializer,
                 "serialize"

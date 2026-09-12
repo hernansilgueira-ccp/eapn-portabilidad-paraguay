@@ -1,19 +1,20 @@
 package py.com.ccp.eapn.route;
 
+import org.apache.camel.ExchangePattern;
 import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.DonorApprovalRequest;
 import py.com.ccp.eapn.model.Operator;
 import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.service.PinService;
 import py.com.ccp.eapn.service.PortabilityJsonSerializer;
-import org.apache.camel.ExchangePattern;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-public class PinConfirmationRoute extends RouteBuilder {
+public class PinConfirmationRoute
+    extends RouteBuilder {
 
     public static final String INPUT_ENDPOINT =
         "direct:pin-confirmation";
@@ -253,53 +254,99 @@ public class PinConfirmationRoute extends RouteBuilder {
                 }
             })
             .choice()
-    .when(
-        header("confirmationStatus")
-            .isEqualTo("CONFIRMED")
-    )
-        .to(confirmEndpoint)
-        .log(
-            "PIN confirmado para la solicitud "
-                + "${header.requestId}"
-        )
-        .to(pendingEndpoint)
-        .setBody(
-            exchangeProperty(
-                "donorApprovalRequest"
-            )
-        )
-        .bean(
-            serializer,
-            "serialize"
-        )
-        .setExchangePattern(
-            ExchangePattern.InOnly
-        )
-        .to(approvalEndpoint)
-        .setExchangePattern(
-            ExchangePattern.InOut
-        )
-        .log(
-            "Solicitud ${header.requestId} "
-                + "enviada al operador donante "
-                + "${header.donorOperator}"
-        )
-    .when(
-        header("confirmationStatus")
-            .isEqualTo("REJECTED")
-    )
-        .to(rejectEndpoint)
-        .log(
-            "Solicitud ${header.requestId} rechazada: "
-                + "${header.rejectionReason}"
-        )
-    .otherwise()
-        .log(
-            "Confirmación duplicada para "
-                + "${header.requestId}; estado actual: "
-                + "${header.currentStatus}"
-            )
-    .end();
+                .when(
+                    header("confirmationStatus")
+                        .isEqualTo("CONFIRMED")
+                )
+                    .to(confirmEndpoint)
+                    .setHeader(
+                        "auditStatus",
+                        constant("CONFIRMED")
+                    )
+                    .setHeader(
+                        "auditDetails",
+                        constant(
+                            "PIN confirmado correctamente"
+                        )
+                    )
+                    .to(
+                        PortabilityStatusPublisherRoute
+                            .INPUT_ENDPOINT
+                    )
+                    .log(
+                        "PIN confirmado para la solicitud "
+                            + "${header.requestId}"
+                    )
+                    .to(pendingEndpoint)
+                    .setHeader(
+                        "auditStatus",
+                        constant("PENDING_DONOR")
+                    )
+                    .setHeader(
+                        "auditDetails",
+                        constant(
+                            "Solicitud enviada al "
+                                + "operador donante"
+                        )
+                    )
+                    .to(
+                        PortabilityStatusPublisherRoute
+                            .INPUT_ENDPOINT
+                    )
+                    .setBody(
+                        exchangeProperty(
+                            "donorApprovalRequest"
+                        )
+                    )
+                    .bean(
+                        serializer,
+                        "serialize"
+                    )
+                    .setExchangePattern(
+                        ExchangePattern.InOnly
+                    )
+                    .to(approvalEndpoint)
+                    .setExchangePattern(
+                        ExchangePattern.InOut
+                    )
+                    .log(
+                        "Solicitud ${header.requestId} "
+                            + "enviada al operador donante "
+                            + "${header.donorOperator}"
+                    )
+                .when(
+                    header("confirmationStatus")
+                        .isEqualTo("REJECTED")
+                )
+                    .to(rejectEndpoint)
+                    .setHeader(
+                        "auditStatus",
+                        constant("REJECTED")
+                    )
+                    .setHeader(
+                        "auditDetails",
+                        simple(
+                            "Solicitud rechazada: "
+                                + "${header.rejectionReason}"
+                        )
+                    )
+                    .to(
+                        PortabilityStatusPublisherRoute
+                            .INPUT_ENDPOINT
+                    )
+                    .log(
+                        "Solicitud ${header.requestId} "
+                            + "rechazada: "
+                            + "${header.rejectionReason}"
+                    )
+                .otherwise()
+                    .log(
+                        "Confirmación duplicada para "
+                            + "${header.requestId}; "
+                            + "estado actual: "
+                            + "${header.currentStatus}"
+                    )
+            .end();
     }
 
     private static Object value(

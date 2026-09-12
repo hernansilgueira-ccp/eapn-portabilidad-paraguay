@@ -149,17 +149,44 @@ public class DonorApprovalConsumerRoute
                         .isEqualTo("APPROVED")
                 )
                     .to(approvedEndpoint)
-                    .log(
-                        "Operador donante aprobó la solicitud "
-                            + "${header.requestId}"
-                    )
+.setHeader(
+    "auditStatus",
+    constant("APPROVED")
+)
+.setHeader(
+    "auditDetails",
+    constant(
+        "Solicitud aprobada por el operador donante"
+    )
+)
+.to(
+    PortabilityStatusPublisherRoute.INPUT_ENDPOINT
+)
+.log(
+    "Operador donante aprobó la solicitud "
+        + "${header.requestId}"
+)
                 .otherwise()
                     .to(rejectedEndpoint)
-                    .log(
-                        "Operador donante rechazó la solicitud "
-                            + "${header.requestId}: "
-                            + "${header.rejectionReason}"
-                    )
+.setHeader(
+    "auditStatus",
+    constant("REJECTED")
+)
+.setHeader(
+    "auditDetails",
+    simple(
+        "Solicitud rechazada por el operador "
+            + "donante: ${header.rejectionReason}"
+    )
+)
+.to(
+    PortabilityStatusPublisherRoute.INPUT_ENDPOINT
+)
+.log(
+    "Operador donante rechazó la solicitud "
+        + "${header.requestId}: "
+        + "${header.rejectionReason}"
+)
             .end()
             .setBody(
                 exchangeProperty("donorApprovalResult")

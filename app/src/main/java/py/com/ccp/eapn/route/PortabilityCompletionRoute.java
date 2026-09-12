@@ -238,11 +238,26 @@ public class PortabilityCompletionRoute
                         .isEqualTo("APPROVED")
                 )
                     .to(insertPortedEndpoint)
-                    .to(completeEndpoint)
-                    .log(
-                        "Portabilidad completada para "
-                            + "${header.msisdn}"
-                    )
+.to(completeEndpoint)
+.setHeader(
+    "auditStatus",
+    constant("COMPLETED")
+)
+.setHeader(
+    "auditDetails",
+    simple(
+        "Portabilidad completada para "
+            + "${header.msisdn}; operador actual: "
+            + "${header.currentOperator}"
+    )
+)
+.to(
+    PortabilityStatusPublisherRoute.INPUT_ENDPOINT
+)
+.log(
+    "Portabilidad completada para "
+        + "${header.msisdn}"
+)
                 .otherwise()
                     .log(
                         "Portabilidad rechazada para "

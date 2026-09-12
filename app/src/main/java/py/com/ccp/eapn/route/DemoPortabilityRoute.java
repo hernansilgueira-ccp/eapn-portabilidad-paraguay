@@ -4,16 +4,35 @@ import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.Operator;
 import py.com.ccp.eapn.model.PortabilityRequest;
 
-public class DemoPortabilityRoute extends RouteBuilder {
+public class DemoPortabilityRoute
+    extends RouteBuilder {
+
+    private static final long MSISDN_SUFFIX_LIMIT =
+        10_000_000L;
 
     @Override
     public void configure() {
-        from("timer:portability-demo?repeatCount=1&delay=2000")
+        from(
+            "timer:portability-demo"
+                + "?repeatCount=1&delay=2000"
+        )
             .routeId("portability-demo")
             .process(exchange -> {
+                long suffix = Math.floorMod(
+                    System.currentTimeMillis(),
+                    MSISDN_SUFFIX_LIMIT
+                );
+
+                String msisdn =
+                    "59598"
+                        + String.format(
+                            "%07d",
+                            suffix
+                        );
+
                 PortabilityRequest request =
                     PortabilityRequest.create(
-                        "595981123456",
+                        msisdn,
                         "4567890",
                         Operator.TIGO,
                         Operator.PERSONAL
@@ -24,7 +43,8 @@ public class DemoPortabilityRoute extends RouteBuilder {
             .to(PortabilityRequestRoute.INPUT_ENDPOINT)
             .log(
                 "Solicitud de demostración enviada: "
-                    + "${header.requestId}"
+                    + "${header.requestId}; MSISDN: "
+                    + "${header.msisdn}"
             );
     }
 }
