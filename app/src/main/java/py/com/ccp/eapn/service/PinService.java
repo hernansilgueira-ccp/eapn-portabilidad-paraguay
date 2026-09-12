@@ -36,7 +36,30 @@ public class PinService {
             expiresAt
         );
     }
+    public boolean matches(
+    String plainPin,
+    String expectedHash
+) {
+    if (
+        plainPin == null
+            || !plainPin.matches("\\d{6}")
+            || expectedHash == null
+            || !expectedHash.matches("[0-9a-f]{64}")
+    ) {
+        return false;
+    }
 
+    byte[] actualHash = HexFormat.of()
+        .parseHex(hash(plainPin));
+
+    byte[] storedHash = HexFormat.of()
+        .parseHex(expectedHash);
+
+    return MessageDigest.isEqual(
+        actualHash,
+        storedHash
+    );
+}
     private String hash(String value) {
         try {
             MessageDigest digest =

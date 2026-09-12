@@ -44,4 +44,40 @@ class PinServiceTest {
                 .isAfter(Instant.now())
         );
     }
+    @Test
+void shouldAcceptMatchingPin() {
+    PinService service = new PinService();
+
+    PinService.GeneratedPin generatedPin =
+        service.generate();
+
+    assertTrue(
+        service.matches(
+            generatedPin.plainPin(),
+            generatedPin.pinHash()
+        )
+    );
+}
+
+@Test
+void shouldRejectIncorrectPin() {
+    PinService service = new PinService();
+
+    PinService.GeneratedPin generatedPin =
+        service.generate();
+
+    String originalPin =
+        generatedPin.plainPin();
+
+    String incorrectPin =
+        (originalPin.charAt(0) == '0' ? "1" : "0")
+            + originalPin.substring(1);
+
+    assertTrue(
+        !service.matches(
+            incorrectPin,
+            generatedPin.pinHash()
+        )
+    );
+}
 }
