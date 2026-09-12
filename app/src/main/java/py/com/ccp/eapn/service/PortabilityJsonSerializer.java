@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import py.com.ccp.eapn.model.DonorApprovalRequest;
 import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.model.PortabilityRequest;
 
@@ -44,6 +45,16 @@ public class PortabilityJsonSerializer {
         return objectMapper.readValue(
             json,
             PinConfirmation.class
+        );
+    }
+
+    public DonorApprovalRequest deserializeDonorApprovalRequest(
+        String json
+    ) throws JsonProcessingException {
+
+        return objectMapper.readValue(
+            json,
+            DonorApprovalRequest.class
         );
     }
 }
