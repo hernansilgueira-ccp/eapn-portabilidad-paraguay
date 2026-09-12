@@ -1,6 +1,7 @@
 package py.com.ccp.eapn.route;
 
 import org.apache.camel.ExchangePattern;
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.DonorApprovalResult;
 import py.com.ccp.eapn.model.Operator;
@@ -48,11 +49,16 @@ public class PortabilityCompletionRoute
         "jms:queue:portability.recipient.notifications"
             + "?connectionFactory=#jmsConnectionFactory";
 
+    public static final String DEAD_LETTER_ENDPOINT =
+        "jms:queue:portability.errors.dlq"
+            + "?connectionFactory=#jmsConnectionFactory";
+
     private final String inputEndpoint;
     private final String selectEndpoint;
     private final String insertPortedEndpoint;
     private final String completeEndpoint;
     private final String outputEndpoint;
+    private final String deadLetterEndpoint;
     private final PortabilityJsonSerializer serializer;
 
     public PortabilityCompletionRoute() {
@@ -62,6 +68,7 @@ public class PortabilityCompletionRoute
             INSERT_PORTED_ENDPOINT,
             COMPLETE_ENDPOINT,
             OUTPUT_ENDPOINT,
+            DEAD_LETTER_ENDPOINT,
             new PortabilityJsonSerializer()
         );
     }
@@ -74,16 +81,48 @@ public class PortabilityCompletionRoute
         String outputEndpoint,
         PortabilityJsonSerializer serializer
     ) {
+        this(
+            inputEndpoint,
+            selectEndpoint,
+            insertPortedEndpoint,
+            completeEndpoint,
+            outputEndpoint,
+            "mock:completion-errors-dlq",
+            serializer
+        );
+    }
+
+    PortabilityCompletionRoute(
+        String inputEndpoint,
+        String selectEndpoint,
+        String insertPortedEndpoint,
+        String completeEndpoint,
+        String outputEndpoint,
+        String deadLetterEndpoint,
+        PortabilityJsonSerializer serializer
+    ) {
         this.inputEndpoint = inputEndpoint;
         this.selectEndpoint = selectEndpoint;
-        this.insertPortedEndpoint = insertPortedEndpoint;
+        this.insertPortedEndpoint =
+            insertPortedEndpoint;
         this.completeEndpoint = completeEndpoint;
         this.outputEndpoint = outputEndpoint;
+        this.deadLetterEndpoint = deadLetterEndpoint;
         this.serializer = serializer;
     }
 
     @Override
     public void configure() {
+        errorHandler(
+            deadLetterChannel(deadLetterEndpoint)
+                .useOriginalMessage()
+                .maximumRedeliveries(3)
+                .redeliveryDelay(1000)
+                .retryAttemptedLogLevel(
+                    LoggingLevel.WARN
+                )
+        );
+
         from(inputEndpoint)
             .routeId("portability-completion")
             .bean(

@@ -34,6 +34,9 @@ class PortabilityCompletionRouteTest
     private final PortabilityJsonSerializer serializer =
         new PortabilityJsonSerializer();
 
+    private static final String DLQ =
+        "mock:completion-errors-dlq";
+
     @Override
     protected RoutesBuilder createRouteBuilder() {
         return new PortabilityCompletionRoute(
@@ -175,6 +178,50 @@ class PortabilityCompletionRouteTest
         );
     }
 
+    @Test
+void shouldSendInvalidResultToDeadLetterQueue()
+    throws Exception {
+
+    String invalidJson =
+        """
+        {
+          "requestId": "identificador-invalido",
+          "status": "ESTADO_INEXISTENTE"
+        }
+        """;
+
+    MockEndpoint selected =
+        getMockEndpoint(SELECT);
+
+    MockEndpoint inserted =
+        getMockEndpoint(INSERT_PORTED);
+
+    MockEndpoint completed =
+        getMockEndpoint(COMPLETE);
+
+    MockEndpoint notifications =
+        getMockEndpoint(OUTPUT);
+
+    MockEndpoint deadLetterQueue =
+        getMockEndpoint(DLQ);
+
+    selected.expectedMessageCount(0);
+    inserted.expectedMessageCount(0);
+    completed.expectedMessageCount(0);
+    notifications.expectedMessageCount(0);
+
+    deadLetterQueue.expectedMessageCount(1);
+    deadLetterQueue.expectedBodiesReceived(
+        invalidJson
+    );
+
+    template.sendBody(
+        INPUT,
+        invalidJson
+    );
+
+    MockEndpoint.assertIsSatisfied(context);
+}
     private void configureSelectedRequest() {
         getMockEndpoint(SELECT)
             .whenAnyExchangeReceived(exchange ->

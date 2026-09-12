@@ -1,5 +1,6 @@
 package py.com.ccp.eapn.route;
 
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.PinNotification;
 import py.com.ccp.eapn.model.PortabilityRequest;
@@ -28,9 +29,14 @@ public class PortabilityRequestConsumerRoute
         "jms:queue:portability.pin.notifications"
             + "?connectionFactory=#jmsConnectionFactory";
 
+    public static final String DEAD_LETTER_ENDPOINT =
+        "jms:queue:portability.errors.dlq"
+            + "?connectionFactory=#jmsConnectionFactory";
+
     private final String inputEndpoint;
     private final String databaseEndpoint;
     private final String outputEndpoint;
+    private final String deadLetterEndpoint;
     private final PinService pinService;
     private final PortabilityJsonSerializer serializer;
 
@@ -39,6 +45,7 @@ public class PortabilityRequestConsumerRoute
             INPUT_ENDPOINT,
             DATABASE_ENDPOINT,
             OUTPUT_ENDPOINT,
+            DEAD_LETTER_ENDPOINT,
             new PinService(),
             new PortabilityJsonSerializer()
         );
@@ -51,15 +58,44 @@ public class PortabilityRequestConsumerRoute
         PinService pinService,
         PortabilityJsonSerializer serializer
     ) {
+        this(
+            inputEndpoint,
+            databaseEndpoint,
+            outputEndpoint,
+            "mock:request-errors-dlq",
+            pinService,
+            serializer
+        );
+    }
+
+    PortabilityRequestConsumerRoute(
+        String inputEndpoint,
+        String databaseEndpoint,
+        String outputEndpoint,
+        String deadLetterEndpoint,
+        PinService pinService,
+        PortabilityJsonSerializer serializer
+    ) {
         this.inputEndpoint = inputEndpoint;
         this.databaseEndpoint = databaseEndpoint;
         this.outputEndpoint = outputEndpoint;
+        this.deadLetterEndpoint = deadLetterEndpoint;
         this.pinService = pinService;
         this.serializer = serializer;
     }
 
     @Override
     public void configure() {
+        errorHandler(
+            deadLetterChannel(deadLetterEndpoint)
+                .useOriginalMessage()
+                .maximumRedeliveries(3)
+                .redeliveryDelay(1000)
+                .retryAttemptedLogLevel(
+                    LoggingLevel.WARN
+                )
+        );
+
         from(inputEndpoint)
             .routeId("portability-request-consumer")
             .bean(

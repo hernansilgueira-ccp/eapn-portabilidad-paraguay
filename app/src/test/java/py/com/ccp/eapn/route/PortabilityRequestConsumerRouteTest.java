@@ -25,6 +25,9 @@ class PortabilityRequestConsumerRouteTest
 
     private final PortabilityJsonSerializer serializer =
         new PortabilityJsonSerializer();
+    
+    private static final String DLQ =
+        "mock:request-errors-dlq";
 
     @Override
     protected RoutesBuilder createRouteBuilder() {
@@ -91,4 +94,40 @@ class PortabilityRequestConsumerRouteTest
             )
         );
     }
+    @Test
+void shouldSendInvalidRequestToDeadLetterQueue()
+    throws Exception {
+
+    String invalidJson =
+        """
+        {
+          "requestId": "identificador-invalido",
+          "msisdn": "numero-invalido"
+        }
+        """;
+
+    MockEndpoint database =
+        getMockEndpoint(DATABASE);
+
+    MockEndpoint notifications =
+        getMockEndpoint(OUTPUT);
+
+    MockEndpoint deadLetterQueue =
+        getMockEndpoint(DLQ);
+
+    database.expectedMessageCount(0);
+    notifications.expectedMessageCount(0);
+
+    deadLetterQueue.expectedMessageCount(1);
+    deadLetterQueue.expectedBodiesReceived(
+        invalidJson
+    );
+
+    template.sendBody(
+        INPUT,
+        invalidJson
+    );
+
+    MockEndpoint.assertIsSatisfied(context);
+}
 }
