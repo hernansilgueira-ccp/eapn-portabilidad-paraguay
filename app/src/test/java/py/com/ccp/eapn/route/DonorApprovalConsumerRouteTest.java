@@ -29,6 +29,9 @@ class DonorApprovalConsumerRouteTest
     private static final String OUTPUT =
         "mock:results";
 
+    private static final String DLQ =
+        "mock:donor-errors-dlq";
+
     private final PortabilityJsonSerializer serializer =
         new PortabilityJsonSerializer();
 
@@ -148,6 +151,46 @@ class DonorApprovalConsumerRouteTest
         );
     }
 
+    @Test
+void shouldSendInvalidJsonToDeadLetterQueue()
+    throws Exception {
+
+    String invalidJson =
+        """
+        {
+          "requestId": "valor-invalido",
+          "donorOperator": "OPERADOR_INEXISTENTE"
+        }
+        """;
+
+    MockEndpoint approved =
+        getMockEndpoint(APPROVED);
+
+    MockEndpoint rejected =
+        getMockEndpoint(REJECTED);
+
+    MockEndpoint results =
+        getMockEndpoint(OUTPUT);
+
+    MockEndpoint deadLetterQueue =
+        getMockEndpoint(DLQ);
+
+    approved.expectedMessageCount(0);
+    rejected.expectedMessageCount(0);
+    results.expectedMessageCount(0);
+
+    deadLetterQueue.expectedMessageCount(1);
+    deadLetterQueue.expectedBodiesReceived(
+        invalidJson
+    );
+
+    template.sendBody(
+        INPUT,
+        invalidJson
+    );
+
+    MockEndpoint.assertIsSatisfied(context);
+}
     private DonorApprovalRequest createRequest(
         String documentNumber
     ) {

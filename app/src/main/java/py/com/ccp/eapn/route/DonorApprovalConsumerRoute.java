@@ -1,5 +1,6 @@
 package py.com.ccp.eapn.route;
 
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.DonorApprovalResult;
 import py.com.ccp.eapn.service.DonorDecisionService;
@@ -32,10 +33,15 @@ public class DonorApprovalConsumerRoute
         "jms:queue:portability.results"
             + "?connectionFactory=#jmsConnectionFactory";
 
+    public static final String DEAD_LETTER_ENDPOINT =
+        "jms:queue:portability.errors.dlq"
+            + "?connectionFactory=#jmsConnectionFactory";
+
     private final String inputEndpoint;
     private final String approvedEndpoint;
     private final String rejectedEndpoint;
     private final String outputEndpoint;
+    private final String deadLetterEndpoint;
     private final DonorDecisionService decisionService;
     private final PortabilityJsonSerializer serializer;
 
@@ -45,6 +51,7 @@ public class DonorApprovalConsumerRoute
             APPROVED_ENDPOINT,
             REJECTED_ENDPOINT,
             OUTPUT_ENDPOINT,
+            DEAD_LETTER_ENDPOINT,
             new DonorDecisionService(),
             new PortabilityJsonSerializer()
         );
@@ -58,16 +65,47 @@ public class DonorApprovalConsumerRoute
         DonorDecisionService decisionService,
         PortabilityJsonSerializer serializer
     ) {
+        this(
+            inputEndpoint,
+            approvedEndpoint,
+            rejectedEndpoint,
+            outputEndpoint,
+            "mock:donor-errors-dlq",
+            decisionService,
+            serializer
+        );
+    }
+
+    DonorApprovalConsumerRoute(
+        String inputEndpoint,
+        String approvedEndpoint,
+        String rejectedEndpoint,
+        String outputEndpoint,
+        String deadLetterEndpoint,
+        DonorDecisionService decisionService,
+        PortabilityJsonSerializer serializer
+    ) {
         this.inputEndpoint = inputEndpoint;
         this.approvedEndpoint = approvedEndpoint;
         this.rejectedEndpoint = rejectedEndpoint;
         this.outputEndpoint = outputEndpoint;
+        this.deadLetterEndpoint = deadLetterEndpoint;
         this.decisionService = decisionService;
         this.serializer = serializer;
     }
 
     @Override
     public void configure() {
+        errorHandler(
+            deadLetterChannel(deadLetterEndpoint)
+                .useOriginalMessage()
+                .maximumRedeliveries(3)
+                .redeliveryDelay(1000)
+                .retryAttemptedLogLevel(
+                    LoggingLevel.WARN
+                )
+        );
+
         from(inputEndpoint)
             .routeId("donor-approval-consumer")
             .bean(
