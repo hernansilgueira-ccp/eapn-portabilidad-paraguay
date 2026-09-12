@@ -7,6 +7,7 @@ import py.com.ccp.eapn.route.DemoPortabilityRoute;
 import py.com.ccp.eapn.route.PortabilityRequestRoute;
 import py.com.ccp.eapn.route.StartupRoute;
 import py.com.ccp.eapn.route.PortabilityRequestConsumerRoute;
+import py.com.ccp.eapn.route.PinConfirmationRoute;
 
 public final class App {
 
@@ -46,6 +47,9 @@ public final class App {
 
         main.configure().addRoutesBuilder(
             new PortabilityRequestConsumerRoute()
+        );
+        main.configure().addRoutesBuilder(
+            new PinConfirmationRoute()
         );
         if (Boolean.parseBoolean(
             environment("EAPN_DEMO_ENABLED", "false")
