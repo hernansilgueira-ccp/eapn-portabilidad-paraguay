@@ -20,6 +20,9 @@ class PortabilityRequestRouteTest
     private static final String MOCK_ARTEMIS =
         "mock:portability-requests";
 
+    private static final String MOCK_AUDIT =
+    "mock:audit-created";    
+
     @Override
     protected RoutesBuilder createRouteBuilder() {
         return new PortabilityRequestRoute(
@@ -46,6 +49,9 @@ class PortabilityRequestRouteTest
         MockEndpoint artemis =
             getMockEndpoint(MOCK_ARTEMIS);
 
+        MockEndpoint audit =
+            getMockEndpoint(MOCK_AUDIT);
+
         database.expectedMessageCount(1);
         database.expectedHeaderReceived(
             "requestId",
@@ -57,6 +63,11 @@ class PortabilityRequestRouteTest
         );
 
         artemis.expectedMessageCount(1);
+        audit.expectedMessageCount(1);
+        audit.expectedHeaderReceived(
+            "requestId",
+            request.requestId().toString()
+        );
         artemis.expectedHeaderReceived(
             "msisdn",
             "595981123456"
@@ -69,6 +80,7 @@ class PortabilityRequestRouteTest
 
         database.assertIsSatisfied();
         artemis.assertIsSatisfied();
+        audit.assertIsSatisfied();
 
         String json = artemis.getExchanges()
             .getFirst()
@@ -84,6 +96,28 @@ class PortabilityRequestRouteTest
         assertTrue(
             json.contains("\"status\":\"CREATED\"")
         );
+        String auditJson =
+    audit.getExchanges()
+        .getFirst()
+        .getMessage()
+        .getBody(String.class);
+
+assertTrue(
+    auditJson.contains(
+        "\"eventType\":\"STATUS_CHANGED\""
+    )
+);
+assertTrue(
+    auditJson.contains(
+        "\"status\":\"CREATED\""
+    )
+);
+assertTrue(
+    auditJson.contains(
+        "\"details\":"
+            + "\"Solicitud de portabilidad creada\""
+    )
+);
     }
 
     @Test

@@ -1,10 +1,12 @@
 package py.com.ccp.eapn.route;
 
 import org.apache.camel.builder.RouteBuilder;
+import py.com.ccp.eapn.model.PortabilityAuditEvent;
 import py.com.ccp.eapn.model.PortabilityRequest;
 import py.com.ccp.eapn.service.PortabilityJsonSerializer;
 
-public class PortabilityRequestRoute extends RouteBuilder {
+public class PortabilityRequestRoute
+    extends RouteBuilder {
 
     public static final String INPUT_ENDPOINT =
         "direct:portability-request";
@@ -29,14 +31,20 @@ public class PortabilityRequestRoute extends RouteBuilder {
         "jms:queue:portability.requests"
             + "?connectionFactory=#jmsConnectionFactory";
 
+    public static final String AUDIT_ENDPOINT =
+        "jms:queue:portability.audit"
+            + "?connectionFactory=#jmsConnectionFactory";
+
     private final String databaseEndpoint;
     private final String outputEndpoint;
+    private final String auditEndpoint;
     private final PortabilityJsonSerializer serializer;
 
     public PortabilityRequestRoute() {
         this(
             DATABASE_ENDPOINT,
             JMS_ENDPOINT,
+            AUDIT_ENDPOINT,
             new PortabilityJsonSerializer()
         );
     }
@@ -48,6 +56,7 @@ public class PortabilityRequestRoute extends RouteBuilder {
         this(
             databaseEndpoint,
             outputEndpoint,
+            "mock:audit-created",
             new PortabilityJsonSerializer()
         );
     }
@@ -57,8 +66,23 @@ public class PortabilityRequestRoute extends RouteBuilder {
         String outputEndpoint,
         PortabilityJsonSerializer serializer
     ) {
+        this(
+            databaseEndpoint,
+            outputEndpoint,
+            "mock:audit-created",
+            serializer
+        );
+    }
+
+    PortabilityRequestRoute(
+        String databaseEndpoint,
+        String outputEndpoint,
+        String auditEndpoint,
+        PortabilityJsonSerializer serializer
+    ) {
         this.databaseEndpoint = databaseEndpoint;
         this.outputEndpoint = outputEndpoint;
+        this.auditEndpoint = auditEndpoint;
         this.serializer = serializer;
     }
 
@@ -67,7 +91,9 @@ public class PortabilityRequestRoute extends RouteBuilder {
         from(INPUT_ENDPOINT)
             .routeId("portability-request")
             .validate(
-                body().isInstanceOf(PortabilityRequest.class)
+                body().isInstanceOf(
+                    PortabilityRequest.class
+                )
             )
             .setProperty(
                 "portabilityRequest",
@@ -83,32 +109,26 @@ public class PortabilityRequestRoute extends RouteBuilder {
                     "requestId",
                     request.requestId().toString()
                 );
-
                 exchange.getMessage().setHeader(
                     "msisdn",
                     request.msisdn()
                 );
-
                 exchange.getMessage().setHeader(
                     "documentNumber",
                     request.documentNumber()
                 );
-
                 exchange.getMessage().setHeader(
                     "donorOperator",
                     request.donorOperator().name()
                 );
-
                 exchange.getMessage().setHeader(
                     "recipientOperator",
                     request.recipientOperator().name()
                 );
-
                 exchange.getMessage().setHeader(
                     "status",
                     request.status().name()
                 );
-
                 exchange.getMessage().setHeader(
                     "requestedAt",
                     request.requestedAt().toString()
@@ -119,6 +139,29 @@ public class PortabilityRequestRoute extends RouteBuilder {
                     + "${header.requestId} en PostgreSQL"
             )
             .to(databaseEndpoint)
+            .process(exchange -> {
+                PortabilityRequest request =
+                    exchange.getProperty(
+                        "portabilityRequest",
+                        PortabilityRequest.class
+                    );
+
+                PortabilityAuditEvent auditEvent =
+                    PortabilityAuditEvent.statusChanged(
+                        request.requestId(),
+                        request.status(),
+                        "Solicitud de portabilidad creada"
+                    );
+
+                exchange.getMessage().setBody(
+                    auditEvent
+                );
+            })
+            .bean(
+                serializer,
+                "serialize"
+            )
+            .wireTap(auditEndpoint)
             .setBody(
                 exchangeProperty("portabilityRequest")
             )
@@ -127,7 +170,10 @@ public class PortabilityRequestRoute extends RouteBuilder {
                     + "${header.requestId} "
                     + "a portability.requests"
             )
-            .bean(serializer, "serialize")
+            .bean(
+                serializer,
+                "serialize"
+            )
             .to(outputEndpoint);
     }
 }
