@@ -10,6 +10,7 @@ import py.com.ccp.eapn.route.PortabilityRequestConsumerRoute;
 import py.com.ccp.eapn.route.PinConfirmationRoute;
 import py.com.ccp.eapn.route.PinConfirmationApiRoute;
 import py.com.ccp.eapn.route.DonorApprovalConsumerRoute;
+import py.com.ccp.eapn.route.PortabilityCompletionRoute;
 
 public final class App {
 
@@ -58,6 +59,9 @@ public final class App {
         );
         main.configure().addRoutesBuilder(
             new DonorApprovalConsumerRoute()
+        );
+        main.configure().addRoutesBuilder(
+            new PortabilityCompletionRoute()
         );
         if (Boolean.parseBoolean(
             environment("EAPN_DEMO_ENABLED", "false")

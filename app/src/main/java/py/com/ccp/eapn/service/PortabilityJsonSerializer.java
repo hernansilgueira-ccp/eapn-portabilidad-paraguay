@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import py.com.ccp.eapn.model.DonorApprovalRequest;
 import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.model.PortabilityRequest;
+import py.com.ccp.eapn.model.DonorApprovalResult;
 
 public class PortabilityJsonSerializer {
 
@@ -55,6 +56,15 @@ public class PortabilityJsonSerializer {
         return objectMapper.readValue(
             json,
             DonorApprovalRequest.class
+        );
+    }
+    public DonorApprovalResult deserializeDonorApprovalResult(
+        String json
+    ) throws JsonProcessingException {
+
+        return objectMapper.readValue(
+            json,
+            DonorApprovalResult.class
         );
     }
 }
