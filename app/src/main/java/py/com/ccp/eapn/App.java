@@ -6,6 +6,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import py.com.ccp.eapn.route.DemoPortabilityRoute;
 import py.com.ccp.eapn.route.PortabilityRequestRoute;
 import py.com.ccp.eapn.route.StartupRoute;
+import py.com.ccp.eapn.route.PortabilityRequestConsumerRoute;
 
 public final class App {
 
@@ -43,6 +44,9 @@ public final class App {
             new PortabilityRequestRoute()
         );
 
+        main.configure().addRoutesBuilder(
+            new PortabilityRequestConsumerRoute()
+        );
         if (Boolean.parseBoolean(
             environment("EAPN_DEMO_ENABLED", "false")
         )) {

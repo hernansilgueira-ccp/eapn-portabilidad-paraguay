@@ -12,15 +12,27 @@ public class PortabilityJsonSerializer {
 
     public PortabilityJsonSerializer() {
         objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.registerModule(
+            new JavaTimeModule()
+        );
         objectMapper.disable(
             SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
         );
     }
 
-    public String serialize(PortabilityRequest request)
+    public String serialize(Object value)
         throws JsonProcessingException {
 
-        return objectMapper.writeValueAsString(request);
+        return objectMapper.writeValueAsString(value);
+    }
+
+    public PortabilityRequest deserializeRequest(
+        String json
+    ) throws JsonProcessingException {
+
+        return objectMapper.readValue(
+            json,
+            PortabilityRequest.class
+        );
     }
 }
