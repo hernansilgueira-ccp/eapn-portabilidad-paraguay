@@ -164,10 +164,16 @@ public class PinConfirmationRoute extends RouteBuilder {
                 );
 
                 if (!"PIN_GENERATED".equals(currentStatus)) {
-                    throw new IllegalStateException(
-                        "La solicitud no está esperando "
-                            + "la confirmación del PIN"
+                    exchange.getMessage().setHeader(
+                        "confirmationStatus",
+                        "CONFLICT"
                     );
+                    exchange.getMessage().setHeader(
+                        "currentStatus",
+                        currentStatus
+                    );
+
+                    return;
                 }
 
                 String pinHash = String.valueOf(
@@ -247,44 +253,53 @@ public class PinConfirmationRoute extends RouteBuilder {
                 }
             })
             .choice()
-                .when(
-                    header("confirmationStatus")
-                        .isEqualTo("CONFIRMED")
-                )
-                    .to(confirmEndpoint)
-                    .log(
-                        "PIN confirmado para la solicitud "
-                            + "${header.requestId}"
-                    )
-                    .to(pendingEndpoint)
-                    .setBody(
-                        exchangeProperty(
-                            "donorApprovalRequest"
-                        )
-                    )
-                    .bean(
-                        serializer,
-                        "serialize"
-                    )
-                    .setExchangePattern(
-                        ExchangePattern.InOnly
-                    )
-                    .to(approvalEndpoint)
-                    .setExchangePattern(
-                        ExchangePattern.InOut
-                    )
-                    .log(
-                        "Solicitud ${header.requestId} "
-                            + "enviada al operador donante "
-                            + "${header.donorOperator}"
-                    )
-                .otherwise()
-                    .to(rejectEndpoint)
-                    .log(
-                        "Solicitud ${header.requestId} rechazada: "
-                            + "${header.rejectionReason}"
-                    )
-            .end();
+    .when(
+        header("confirmationStatus")
+            .isEqualTo("CONFIRMED")
+    )
+        .to(confirmEndpoint)
+        .log(
+            "PIN confirmado para la solicitud "
+                + "${header.requestId}"
+        )
+        .to(pendingEndpoint)
+        .setBody(
+            exchangeProperty(
+                "donorApprovalRequest"
+            )
+        )
+        .bean(
+            serializer,
+            "serialize"
+        )
+        .setExchangePattern(
+            ExchangePattern.InOnly
+        )
+        .to(approvalEndpoint)
+        .setExchangePattern(
+            ExchangePattern.InOut
+        )
+        .log(
+            "Solicitud ${header.requestId} "
+                + "enviada al operador donante "
+                + "${header.donorOperator}"
+        )
+    .when(
+        header("confirmationStatus")
+            .isEqualTo("REJECTED")
+    )
+        .to(rejectEndpoint)
+        .log(
+            "Solicitud ${header.requestId} rechazada: "
+                + "${header.rejectionReason}"
+        )
+    .otherwise()
+        .log(
+            "Confirmación duplicada para "
+                + "${header.requestId}; estado actual: "
+                + "${header.currentStatus}"
+            )
+    .end();
     }
 
     private static Object value(

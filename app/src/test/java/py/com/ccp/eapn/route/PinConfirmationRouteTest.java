@@ -8,6 +8,9 @@ import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.service.PinService;
 import py.com.ccp.eapn.service.PortabilityJsonSerializer;
 
+import org.apache.camel.Exchange;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -213,6 +216,66 @@ class PinConfirmationRouteTest
         );
     }
 
+    @Test
+void shouldReportConflictWhenAlreadyProcessed()
+    throws Exception {
+
+    UUID requestId = UUID.randomUUID();
+
+    getMockEndpoint(SELECT)
+        .whenAnyExchangeReceived(exchange ->
+            exchange.getMessage().setBody(
+                Map.of(
+                    "status",
+                    "PENDING_DONOR"
+                )
+            )
+        );
+
+    getMockEndpoint(CONFIRM)
+        .expectedMessageCount(0);
+
+    getMockEndpoint(PENDING)
+        .expectedMessageCount(0);
+
+    getMockEndpoint(REJECT)
+        .expectedMessageCount(0);
+
+    getMockEndpoint(APPROVAL)
+        .expectedMessageCount(0);
+
+    PinConfirmation confirmation =
+        new PinConfirmation(
+            requestId,
+            "123456"
+        );
+
+    String json =
+        serializer.serialize(confirmation);
+
+    Exchange exchange = template.request(
+        INPUT,
+        requestExchange ->
+            requestExchange.getMessage()
+                .setBody(json)
+    );
+
+    MockEndpoint.assertIsSatisfied(context);
+
+    assertEquals(
+        "CONFLICT",
+        exchange.getMessage().getHeader(
+            "confirmationStatus"
+        )
+    );
+
+    assertEquals(
+        "PENDING_DONOR",
+        exchange.getMessage().getHeader(
+            "currentStatus"
+        )
+    );
+}
     private void configureSelectedRequest(
     String pinHash,
     Instant expiresAt

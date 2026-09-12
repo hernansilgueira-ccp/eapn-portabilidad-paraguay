@@ -61,6 +61,26 @@ public class PinConfirmationApiRoute
                             """
                         )
                     )
+                .when(
+                    header("confirmationStatus")
+                        .isEqualTo("CONFLICT")
+                )
+                    .setHeader(
+                        Exchange.HTTP_RESPONSE_CODE,
+                        constant(409)
+                    )
+                    .setBody(
+                        simple(
+                            """
+                            {
+                              "requestId": "${header.requestId}",
+                              "status": "CONFLICT",
+                              "message": "La solicitud ya fue procesada",
+                              "currentStatus": "${header.currentStatus}"
+                            }
+                            """
+                        )
+                    )
                 .otherwise()
                     .setHeader(
                         Exchange.HTTP_RESPONSE_CODE,
