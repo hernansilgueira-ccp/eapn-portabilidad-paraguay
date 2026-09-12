@@ -27,6 +27,12 @@ class PinConfirmationRouteTest
     private static final String REJECT =
         "mock:reject-request";
 
+    private static final String PENDING =
+        "mock:pending-donor";
+
+    private static final String APPROVAL =
+        "mock:donor-approval";
+
     private final PinService pinService =
         new PinService();
 
@@ -39,7 +45,9 @@ class PinConfirmationRouteTest
             INPUT,
             SELECT,
             CONFIRM,
+            PENDING,
             REJECT,
+            APPROVAL,
             pinService,
             serializer
         );
@@ -63,6 +71,12 @@ class PinConfirmationRouteTest
         MockEndpoint rejected =
             getMockEndpoint(REJECT);
 
+        MockEndpoint pending =
+            getMockEndpoint(PENDING);
+
+        MockEndpoint approval =
+            getMockEndpoint(APPROVAL);
+
         confirmed.expectedMessageCount(1);
         confirmed.expectedHeaderReceived(
             "requestId",
@@ -74,6 +88,33 @@ class PinConfirmationRouteTest
         );
 
         rejected.expectedMessageCount(0);
+
+        pending.expectedMessageCount(1);
+        pending.expectedHeaderReceived(
+            "requestId",
+            requestId.toString()
+        );
+
+        approval.expectedMessageCount(1);
+        approval.expectedHeaderReceived(
+            "requestId",
+            requestId.toString()
+        );
+        approval.expectedHeaderReceived(
+            "donorOperator",
+            "TIGO"
+        );
+        approval.expectedMessagesMatches(
+            exchange -> {
+                String json =
+                    exchange.getMessage()
+                        .getBody(String.class);
+
+                return json.contains(
+                    "\"donorOperator\":\"TIGO\""
+                );
+            }
+        );
 
         sendConfirmation(
             requestId,
@@ -173,23 +214,31 @@ class PinConfirmationRouteTest
     }
 
     private void configureSelectedRequest(
-        String pinHash,
-        Instant expiresAt
-    ) {
-        getMockEndpoint(SELECT)
-            .whenAnyExchangeReceived(exchange ->
-                exchange.getMessage().setBody(
-                    Map.of(
-                        "pin_hash",
-                        pinHash,
-                        "pin_expires_at",
-                        expiresAt,
-                        "status",
-                        "PIN_GENERATED"
-                    )
+    String pinHash,
+    Instant expiresAt
+) {
+    getMockEndpoint(SELECT)
+        .whenAnyExchangeReceived(exchange ->
+            exchange.getMessage().setBody(
+                Map.of(
+                    "pin_hash",
+                    pinHash,
+                    "pin_expires_at",
+                    expiresAt,
+                    "status",
+                    "PIN_GENERATED",
+                    "msisdn",
+                    "595981123456",
+                    "document_number",
+                    "4567890",
+                    "donor_operator",
+                    "TIGO",
+                    "recipient_operator",
+                    "PERSONAL"
                 )
-            );
-    }
+            )
+        );
+}
 
     private void sendConfirmation(
         UUID requestId,

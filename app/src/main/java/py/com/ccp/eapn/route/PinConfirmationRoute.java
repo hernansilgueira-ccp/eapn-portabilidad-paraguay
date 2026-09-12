@@ -1,9 +1,12 @@
 package py.com.ccp.eapn.route;
 
 import org.apache.camel.builder.RouteBuilder;
+import py.com.ccp.eapn.model.DonorApprovalRequest;
+import py.com.ccp.eapn.model.Operator;
 import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.service.PinService;
 import py.com.ccp.eapn.service.PortabilityJsonSerializer;
+import org.apache.camel.ExchangePattern;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -16,7 +19,9 @@ public class PinConfirmationRoute extends RouteBuilder {
         "direct:pin-confirmation";
 
     public static final String SELECT_ENDPOINT =
-        "sql:SELECT pin_hash, pin_expires_at, status "
+        "sql:SELECT pin_hash, pin_expires_at, status, "
+            + "msisdn, document_number, donor_operator, "
+            + "recipient_operator "
             + "FROM portability_requests "
             + "WHERE request_id = CAST(:#requestId AS UUID)"
             + "?dataSource=#dataSource"
@@ -30,6 +35,13 @@ public class PinConfirmationRoute extends RouteBuilder {
             + "WHERE request_id = CAST(:#requestId AS UUID)"
             + "?dataSource=#dataSource";
 
+    public static final String PENDING_ENDPOINT =
+        "sql:UPDATE portability_requests "
+            + "SET status = 'PENDING_DONOR', "
+            + "updated_at = CURRENT_TIMESTAMP "
+            + "WHERE request_id = CAST(:#requestId AS UUID)"
+            + "?dataSource=#dataSource";
+
     public static final String REJECT_ENDPOINT =
         "sql:UPDATE portability_requests "
             + "SET status = 'REJECTED', "
@@ -38,10 +50,16 @@ public class PinConfirmationRoute extends RouteBuilder {
             + "WHERE request_id = CAST(:#requestId AS UUID)"
             + "?dataSource=#dataSource";
 
+    public static final String APPROVAL_ENDPOINT =
+        "jms:queue:portability.approvals"
+            + "?connectionFactory=#jmsConnectionFactory";
+
     private final String inputEndpoint;
     private final String selectEndpoint;
     private final String confirmEndpoint;
+    private final String pendingEndpoint;
     private final String rejectEndpoint;
+    private final String approvalEndpoint;
     private final PinService pinService;
     private final PortabilityJsonSerializer serializer;
 
@@ -50,7 +68,9 @@ public class PinConfirmationRoute extends RouteBuilder {
             INPUT_ENDPOINT,
             SELECT_ENDPOINT,
             CONFIRM_ENDPOINT,
+            PENDING_ENDPOINT,
             REJECT_ENDPOINT,
+            APPROVAL_ENDPOINT,
             new PinService(),
             new PortabilityJsonSerializer()
         );
@@ -64,10 +84,34 @@ public class PinConfirmationRoute extends RouteBuilder {
         PinService pinService,
         PortabilityJsonSerializer serializer
     ) {
+        this(
+            inputEndpoint,
+            selectEndpoint,
+            confirmEndpoint,
+            "mock:pending-donor",
+            rejectEndpoint,
+            "mock:donor-approval",
+            pinService,
+            serializer
+        );
+    }
+
+    PinConfirmationRoute(
+        String inputEndpoint,
+        String selectEndpoint,
+        String confirmEndpoint,
+        String pendingEndpoint,
+        String rejectEndpoint,
+        String approvalEndpoint,
+        PinService pinService,
+        PortabilityJsonSerializer serializer
+    ) {
         this.inputEndpoint = inputEndpoint;
         this.selectEndpoint = selectEndpoint;
         this.confirmEndpoint = confirmEndpoint;
+        this.pendingEndpoint = pendingEndpoint;
         this.rejectEndpoint = rejectEndpoint;
+        this.approvalEndpoint = approvalEndpoint;
         this.pinService = pinService;
         this.serializer = serializer;
     }
@@ -150,7 +194,50 @@ public class PinConfirmationRoute extends RouteBuilder {
                     valid ? "CONFIRMED" : "REJECTED"
                 );
 
-                if (!valid) {
+                if (valid) {
+                    DonorApprovalRequest approvalRequest =
+                        new DonorApprovalRequest(
+                            confirmation.requestId(),
+                            String.valueOf(
+                                value(requestData, "msisdn")
+                            ),
+                            String.valueOf(
+                                value(
+                                    requestData,
+                                    "document_number"
+                                )
+                            ),
+                            Operator.valueOf(
+                                String.valueOf(
+                                    value(
+                                        requestData,
+                                        "donor_operator"
+                                    )
+                                )
+                            ),
+                            Operator.valueOf(
+                                String.valueOf(
+                                    value(
+                                        requestData,
+                                        "recipient_operator"
+                                    )
+                                )
+                            ),
+                            Instant.now()
+                        );
+
+                    exchange.setProperty(
+                        "donorApprovalRequest",
+                        approvalRequest
+                    );
+
+                    exchange.getMessage().setHeader(
+                        "donorOperator",
+                        approvalRequest
+                            .donorOperator()
+                            .name()
+                    );
+                } else {
                     exchange.getMessage().setHeader(
                         "rejectionReason",
                         expired
@@ -168,6 +255,28 @@ public class PinConfirmationRoute extends RouteBuilder {
                     .log(
                         "PIN confirmado para la solicitud "
                             + "${header.requestId}"
+                    )
+                    .to(pendingEndpoint)
+                    .setBody(
+                        exchangeProperty(
+                            "donorApprovalRequest"
+                        )
+                    )
+                    .bean(
+                        serializer,
+                        "serialize"
+                    )
+                    .setExchangePattern(
+                        ExchangePattern.InOnly
+                    )
+                    .to(approvalEndpoint)
+                    .setExchangePattern(
+                        ExchangePattern.InOut
+                    )
+                    .log(
+                        "Solicitud ${header.requestId} "
+                            + "enviada al operador donante "
+                            + "${header.donorOperator}"
                     )
                 .otherwise()
                     .to(rejectEndpoint)
