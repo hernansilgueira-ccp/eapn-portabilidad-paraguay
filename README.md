@@ -38,6 +38,8 @@ Simular el flujo completo de una solicitud de portabilidad numérica:
 - Netty HTTP
 
 ## Arquitectura general
+La documentación y los diagramas detallados están disponibles en
+[Arquitectura de la EAPN](docs/arquitectura-eapn.md).
 
 El sistema utiliza APIs REST para recibir solicitudes y Apache ActiveMQ Artemis para procesarlas de manera asíncrona.
 
