@@ -151,6 +151,7 @@ La suite automatizada contiene actualmente **30 pruebas**:
 - 0 fallidas.
 - 0 errores.
 - 0 omitidas.
+
 El reporte HTML de las pruebas se genera en:
 
 ```text
@@ -351,7 +352,7 @@ Almacena el historial completo de cambios de estado.
 Los scripts de creación se encuentran en:
 
 ```text
-docker/postgres/init/
+database/init/
 ```
 
 ## Consultas de verificación
@@ -449,7 +450,7 @@ Base de datos: eapn
 Contraseña: eapn_password
 ```
 
-La consola local de Artemis utiliza las credenciales definidas en `docker-compose.yml`.
+La consola local de Artemis utiliza las credenciales definidas en `compose.yaml`.
 
 Estas credenciales son exclusivamente para el entorno académico y local.
 
