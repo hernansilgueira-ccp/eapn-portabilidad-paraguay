@@ -13,6 +13,7 @@ import py.com.ccp.eapn.route.DonorApprovalConsumerRoute;
 import py.com.ccp.eapn.route.PortabilityCompletionRoute;
 import py.com.ccp.eapn.route.PortabilityAuditRoute;
 import py.com.ccp.eapn.route.PortabilityStatusPublisherRoute;
+import py.com.ccp.eapn.route.PortabilityRequestApiRoute;
 
 public final class App {
 
@@ -70,6 +71,9 @@ public final class App {
         );
         main.configure().addRoutesBuilder(
             new PortabilityStatusPublisherRoute()
+        );
+        main.configure().addRoutesBuilder(
+            new PortabilityRequestApiRoute()
         );
         if (Boolean.parseBoolean(
             environment("EAPN_DEMO_ENABLED", "false")

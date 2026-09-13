@@ -9,6 +9,7 @@ import py.com.ccp.eapn.model.PinConfirmation;
 import py.com.ccp.eapn.model.PortabilityRequest;
 import py.com.ccp.eapn.model.DonorApprovalResult;
 import py.com.ccp.eapn.model.PortabilityAuditEvent;
+import py.com.ccp.eapn.model.CreatePortabilityRequest;
 
 public class PortabilityJsonSerializer {
 
@@ -75,6 +76,16 @@ public class PortabilityJsonSerializer {
     return objectMapper.readValue(
         json,
         PortabilityAuditEvent.class
+    );
+}
+public CreatePortabilityRequest
+    deserializeCreatePortabilityRequest(
+        String json
+    ) throws JsonProcessingException {
+
+    return objectMapper.readValue(
+        json,
+        CreatePortabilityRequest.class
     );
 }
 }

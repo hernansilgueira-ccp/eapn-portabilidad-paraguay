@@ -4,6 +4,7 @@ import org.apache.camel.builder.RouteBuilder;
 import py.com.ccp.eapn.model.PortabilityAuditEvent;
 import py.com.ccp.eapn.model.PortabilityRequest;
 import py.com.ccp.eapn.service.PortabilityJsonSerializer;
+import org.apache.camel.ExchangePattern;
 
 public class PortabilityRequestRoute
     extends RouteBuilder {
@@ -171,9 +172,12 @@ public class PortabilityRequestRoute
                     + "a portability.requests"
             )
             .bean(
-                serializer,
-                "serialize"
-            )
-            .to(outputEndpoint);
+    serializer,
+    "serialize"
+)
+.setExchangePattern(
+    ExchangePattern.InOnly
+)
+.to(outputEndpoint);
     }
 }
