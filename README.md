@@ -145,7 +145,12 @@ Resultado esperado:
 ```text
 BUILD SUCCESSFUL
 ```
+La suite automatizada contiene actualmente **30 pruebas**:
 
+- 30 ejecutadas.
+- 0 fallidas.
+- 0 errores.
+- 0 omitidas.
 El reporte HTML de las pruebas se genera en:
 
 ```text
